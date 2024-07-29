@@ -83,26 +83,26 @@ async function course_approval() {
 
 
 async function test() {
-    result = await find_course_to_create()
-    console.log(result)
-    
-    // let phone = 918779171731
-    // let topic = "Ruler 1"
-    // let goal = "To study"
-    // let style = "Beginner"
-    // let language = "English"
-    // let id = "recv4zQmrJ6EIgXYs"
+    // result = await find_course_to_create()
+    // console.log(result)
 
-    // let generate_course_status = await cop.generate_course(phone, topic, goal, style, language).then().catch(e => console.log("Generate course error 2" + e));
-    // if (generate_course_status == 200) {
-    //     // console.log("Course Generated 1 ", id);
+    let phone = 918779171731
+    let topic = "Farming"
+    let goal = "To study"
+    let style = "Beginner"
+    let language = "English"
+    let id = "recv4zQmrJ6EIgXYs"
 
-    //     // let id = generate_course_status.data.id;
+    let generate_course_status = await cop.generate_course(phone, topic, goal, style, language).then().catch(e => console.log("Generate course error 2" + e));
+    if (generate_course_status == 200) {
+        // console.log("Course Generated 1 ", id);
 
-    // } else {
-    //     console.log("Course Not Generated 2");
-    //     airtable.updateAlfredData(id, "Course Status", "Failed").then().catch(e => console.log("Update last msg error " + e));
-    // }
+        // let id = generate_course_status.data.id;
+
+    } else {
+        console.log("Course Not Generated 2");
+        airtable.updateAlfredData(id, "Course Status", "Failed").then().catch(e => console.log("Update last msg error " + e));
+    }
 }
 
 // test()

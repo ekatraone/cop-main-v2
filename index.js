@@ -13,27 +13,54 @@ const openai = new OpenAIApi(configuration);
 async function ask(course_name, language) {
     console.log("1. Asking question ", course_name, language)
 
-    let question = ` Write a 3 day lesson plan on the topic ${course_name}, each day should be divided into 3 modules and each module should have 1 topic. 
+    let question = `Write a 3-day lesson plan on the topic "${course_name}". Each day should be divided into 3 modules, each module should only have the content. 
 
-Strictly follow and create a valid JSON as given below in English language .
+Strictly follow and create a valid JSON structure as given below:
+
 {
-"Introduction":[""],
-"Day 1":["Day 1 - Module 1","Day 1 - Module 2","Day 1 - Module 3"],
-"Day 2":["Day 2 - Module 1","Day 2 - Module 2","Day 2 - Module 3"],
-"Day 3":["Day 3 - Module 1","Day 3 - Module 2","Day 3 - Module 3"],
-"Assessment":[""],
-Conclusion:[""]
-}
-`
+  "Day 1": {
+    "Day 1 - Module 1": {
+      "[module-content]"
+    },
+    "Day 1 - Module 2": {
+      "[module-content]"
+    },
+    "Day 1 - Module 3": {
+      "[module-content]"
+    }
+  },
+  "Day 2": {
+    "Day 2 - Module 1": {
+      "[module-content]"
+    },
+    "Day 2 - Module 2": {
+      "[module-content]"
+    },
+    "Day 2 - Module 3": {
+      "[module-content]"
+    }
+  },
+  "Day 3": {
+    "Day 3 - Module 1": {
+      "[module-content]"
+    },
+    "Day 3 - Module 2": {
+      "[module-content]"
+    },
+    "Day 3 - Module 3": {
+      "[module-content]"
+    }
+  }
+}`;
     try {
         const completion = await openai.createChatCompletion({
             model: "gpt-4",
             messages:
-                [{ "role": "system", "content": "You are a subject matter expert." },
+                [{ "role": "system", "content": "You are a subject matter expert. Provide only the JSON structure without any additional text." },
                 { "role": "user", "content": question }
 
                 ],
-            temperature: 0.2
+            temperature: 0
         });
         return completion.data.choices[0].message.content
 
@@ -91,66 +118,122 @@ async function create_table_fields(course_name, module_number) {
 
 
 
+// async function iterate_through_module(course_outline, goal, style, language) {
+//     console.log("0. Iterating through module ", course_outline)
+//     course_outline = JSON.parse(course_outline)
+//     console.log("1. Iterating through module ", course_outline)
+
+//     module_details_dict = {}
+//     day_count = 1
+//     try {
+//         for (const key in course_outline) {
+//             // console.log("Key ", key)
+
+//             const value = course_outline[key];
+//             let value_length = Object.keys(value).length
+//             console.log('Value ', course_outline[key])
+//             module_details_day_count = []
+
+//             console.log(key == "Day " + day_count, key, "Day " + day_count )
+
+//             if (key == "Day " + day_count) {
+//                 // console.log("2. Value Length ", Object.keys(value).length, value)
+//                 for (i = 0; i < value_length; i++) {
+//                     // console.log("Inside loop 1 ", value_length)
+
+//                     for (i = 0; i < value_length; i++) {
+//                         console.log("Inside loop 2 ", value)
+//                         console.log("3. Key", course_outline[key][i])
+//                         let module = course_outline[key][i];
+//                         // if(module.inclded)
+//                         // console.log(`module ${module}`);
+//                         // let moduleArray = Object.entries(module).map(([key, value]) => value);
+//                         // console.log("Module Array ", moduleArray)
+//                         // let module_topic = moduleArray.map(topic => topic.split(':')[1].trim());
+//                         // console.log("module_topic", module_topic)
+
+//                         let moduleArray = Object.entries(module).map(([key, value]) => value);
+//                         console.log("Module Array ", moduleArray);
+
+//                         let module_topic = moduleArray.map(topic => {
+//                             let parts = topic.split(':');
+//                             parts.length > 1 ? parts[1].trim() : topic;
+//                         });
+//                         console.log("module_topic", module_topic);
+
+//                         // let module_topic = module.split(":")[1]
+//                         //
+//                         module_content = await module_gen(module_topic, goal, style, language).then().catch(e => console.error("iterate_through_module Error " + e));
+
+//                         console.log(`${module_topic}\n\n ${module_content}`);
+
+//                         module_details_day_count.push(module_content)
+
+//                         module_details_dict[key] = module_details_day_count
+
+//                     }
+//                 }
+//                 day_count++
+
+//             }
+//             console.log("2", module_details_dict)
+
+//         }
+//         return module_details_dict
+
+//     }
+//     catch (e) {
+//         console.log("iterate_through_module error", e)
+//         return "iterate_through_module error"
+//     }
+
+// }
+
 async function iterate_through_module(course_outline, goal, style, language) {
     console.log("0. Iterating through module ", course_outline)
     course_outline = JSON.parse(course_outline)
     console.log("1. Iterating through module ", course_outline)
 
-    module_details_dict = {}
-    day_count = 1
+    let module_details_dict = {}
+    let day_count = 1
+
     try {
         for (const key in course_outline) {
-            // console.log("Key ", key)
-
-            const value = course_outline[key];
             console.log('Value ', course_outline[key])
-            module_details_day_count = []
+            let value = course_outline[key]
+            let value_length = Object.keys(value).length
+            let module_details_day_count = []
 
-            // console.log(key == "Day " + day_count)
+            console.log(key === "Day " + day_count, key, "Day " + day_count)
 
-            if (key == "Day " + day_count) {
-                // console.log("2. Key", key)
-                for (i = 0; i < value.length; i++) {
+            if (key === "Day " + day_count) {
+                for (const module_key in value) {
+                    let module_content = value[module_key].content
 
+                    console.log("Processing module ", module_content)
 
+                    let module_topic = module_content.split(":").length > 1 ? module_content.split(":")[1].trim() : module_content
+                    console.log("module_topic", module_topic)
 
-                    for (i = 0; i < value.length; i++) {
-                        console.log("3. Key", course_outline[key][i])
-                        let module = course_outline[key][i];
-                        // if(module.inclded)
-                        // console.log(`module ${module}`);
-                        let moduleArray = Object.entries(module).map(([key, value]) => value);
-                        // console.log("Module Array ", moduleArray)
-                        let module_topic = moduleArray.map(topic => topic.split(':')[1].trim());
-                        console.log("module_topic", module_topic)
+                    module_content = await module_gen(module_topic, goal, style, language).then().catch(e => console.error("iterate_through_module Error " + e))
 
-                        // let module_topic = module.split(":")[1]
-                        // 
-                        module_content = await module_gen(module_topic, goal, style, language).then().catch(e => console.error("iterate_through_module Error " + e));
+                    console.log(`${module_topic}\n\n ${module_content}`)
 
-                        console.log(`${module_topic}\n\n ${module_content}`);
+                    module_details_day_count.push(module_content)
 
-                        module_details_day_count.push(module_content)
-
-                        module_details_dict[key] = module_details_day_count
-
-                    }
+                    module_details_dict[key] = module_details_day_count
                 }
                 day_count++
-
             }
             console.log("2", module_details_dict)
-
         }
         return module_details_dict
-
-    }
-    catch (e) {
+    } catch (e) {
         console.log("iterate_through_module error", e)
         return "iterate_through_module error"
     }
-
 }
+
 async function generate_course(senderID, course_name, goal, style, language) {
     let table_id;
 
@@ -178,6 +261,7 @@ async function generate_course(senderID, course_name, goal, style, language) {
 
                 if (typeof (table_id) === "string") {
                     let course_outline = await ask(course_name, language).then().catch(e => console.error("Course outline error " + e));
+                    console.log("Course OUTLINE generated ", course_outline)
 
                     if (course_outline != "Error in asking question") {
                         let course_details = await iterate_through_module(course_outline, goal, style, language).then().catch(e => console.error("course_details error " + e));
@@ -269,8 +353,9 @@ async function populate_fields(module_number, module_details, course_name, sende
 
 
             const value = module_details[key];
+            let value_length = Object.keys(value).length
 
-            for (i = 0; i < value.length; i++) {
+            for (i = 0; i < value_length; i++) {
                 if (key == "Day " + day_count) {
                     console.log("Day " + day_count)
                     record_array =
