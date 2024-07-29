@@ -5,14 +5,19 @@ let axios = require('axios');
 let cop = require('./index');
 
 // let Airtable = require('airtable');
+let course_base = process.env.course_base
 
+let base_student = process.env.studentBase
+let student_table = process.env.studentTable
+
+let apiKey = process.env.personal_access_token;
 async function find_course_to_create() {
 
     let config = {
         method: 'GET',
-        url: `https://api.airtable.com/v0/${process.env.alfred_base}/${process.env.alfred_table}?fields%5B%5D=Phone&fields%5B%5D=Topic&fields%5B%5D=Course+Status&fields%5B%5D=Name&fields%5B%5D=Language&fields%5B%5D=Goal&fields%5B%5D=Style&filterByFormula=OR(%7BCourse+Status%7D+%3D+%22Approved%22%2C%7BCourse+Status%7D+%3D+%22Failed%22+)&maxRecords=1&sort%5B0%5D%5Bfield%5D=Created&sort%5B0%5D%5Bdirection%5D=asc`,
+        url: `https://api.airtable.com/v0/${base_student}/${student_table}?fields%5B%5D=Phone&fields%5B%5D=Topic&fields%5B%5D=Course+Status&fields%5B%5D=Name&fields%5B%5D=Language&fields%5B%5D=Goal&fields%5B%5D=Style&filterByFormula=OR(%7BCourse+Status%7D+%3D+%22Approved%22%2C%7BCourse+Status%7D+%3D+%22Failed%22+)&maxRecords=1&sort%5B0%5D%5Bfield%5D=Created&sort%5B0%5D%5Bdirection%5D=asc`,
         headers: {
-            'Authorization': `Bearer ${process.env.personal_access_token}`,
+            'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
 
         }
@@ -78,23 +83,26 @@ async function course_approval() {
 
 
 async function test() {
-    let phone = 918779171731
-    let topic = "Ruler 1"
-    let goal = "To study"
-    let style = "Beginner"
-    let language = "English"
-    let id = "recv4zQmrJ6EIgXYs"
+    result = await find_course_to_create()
+    console.log(result)
+    
+    // let phone = 918779171731
+    // let topic = "Ruler 1"
+    // let goal = "To study"
+    // let style = "Beginner"
+    // let language = "English"
+    // let id = "recv4zQmrJ6EIgXYs"
 
-    let generate_course_status = await cop.generate_course(phone, topic, goal, style, language).then().catch(e => console.log("Generate course error 2" + e));
-    if (generate_course_status == 200) {
-        // console.log("Course Generated 1 ", id);
+    // let generate_course_status = await cop.generate_course(phone, topic, goal, style, language).then().catch(e => console.log("Generate course error 2" + e));
+    // if (generate_course_status == 200) {
+    //     // console.log("Course Generated 1 ", id);
 
-        // let id = generate_course_status.data.id;
+    //     // let id = generate_course_status.data.id;
 
-    } else {
-        console.log("Course Not Generated 2");
-        airtable.updateAlfredData(id, "Course Status", "Failed").then().catch(e => console.log("Update last msg error " + e));
-    }
+    // } else {
+    //     console.log("Course Not Generated 2");
+    //     airtable.updateAlfredData(id, "Course Status", "Failed").then().catch(e => console.log("Update last msg error " + e));
+    // }
 }
 
 // test()
