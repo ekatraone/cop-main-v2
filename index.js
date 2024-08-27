@@ -54,7 +54,7 @@ Strictly follow and create a valid JSON structure as given below:
 }`;
     try {
         const completion = await openai.createChatCompletion({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages:
                 [{ "role": "system", "content": "You are a subject matter expert. Provide only the JSON structure without any additional text." },
                 { "role": "user", "content": question }
