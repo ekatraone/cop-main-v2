@@ -3,6 +3,7 @@ const airtable = require("./airtable_methods");
 require('dotenv').config();
 let axios = require('axios');
 let cop = require('./index');
+let openaiModule = require('./OpenAI');
 
 // let Airtable = require('airtable');
 let course_base = process.env.course_base
@@ -44,68 +45,15 @@ async function find_course_to_create() {
 }
 
 async function course_approval() {
-    let course_to_create = await find_course_to_create()
-    console.log(course_to_create.length == 0, course_to_create)
-    if (course_to_create.length != 0) {
-        let id = course_to_create[0].id
-        let phone = course_to_create[0].fields.Phone
-        let topic = course_to_create[0].fields.Topic
-        let name = course_to_create[0].fields.Name
-        let goal = course_to_create[0].fields.Goal
-        let style = course_to_create[0].fields.Style
-        let language = course_to_create[0].fields.Language
-        let course_status = course_to_create[0].fields["Course Status"]
-
-        console.log(phone, topic, course_status, language, style, goal, name, id)
-
-        let generate_course_status = await cop.generate_course(phone, topic, goal, style, language).then().catch(e => console.log("Generate course error 1" + e));
-        if (generate_course_status == 200) {
-            console.log("Course Generated", id);
-
-            airtable.updateAlfredData(id, "Last_Msg", "course generated").then().catch(e => console.log("Update last msg error " + e));
-
-            airtable.updateAlfredData(id, "Course Status", "Content Created").then().catch(e => console.log("Update last msg error " + e));
-
-
-            let does_student_exist = await airtable.find_student_record(phone).then().catch(e => console.error("Error finding Student " + e));
-            airtable.update_student_record(id)
-            airtable.updateField(id, "Last_Msg", "Start Course").then().catch(e => console.log("Update student record error " + e))
-
-
-        } else {
-            console.log("Course Not Generated 1");
-            airtable.updateAlfredData(id, "Course Status", "Failed").then().catch(e => console.log("Update last msg error " + e));
-        }
-
+    try {
+        openaiModule.generateCourse();
+    } catch (error) {
+        console.log("Error generating course", error);
     }
 }
 
 
 
-async function test() {
-    // result = await find_course_to_create()
-    // console.log(result)
-
-    let phone = 918779171731
-    let topic = "Farming"
-    let goal = "To study"
-    let style = "Beginner"
-    let language = "English"
-    let id = "recv4zQmrJ6EIgXYs"
-
-    let generate_course_status = await cop.generate_course(phone, topic, goal, style, language).then().catch(e => console.log("Generate course error 2" + e));
-    if (generate_course_status == 200) {
-        // console.log("Course Generated 1 ", id);
-
-        // let id = generate_course_status.data.id;
-
-    } else {
-        console.log("Course Not Generated 2");
-        airtable.updateAlfredData(id, "Course Status", "Failed").then().catch(e => console.log("Update last msg error " + e));
-    }
-}
-
-// test()
 
 module.exports = {
     find_course_to_create,
