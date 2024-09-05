@@ -2,6 +2,7 @@ var Airtable = require('airtable');
 require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
+const {sendTemplateMessage} = require('./wati');
 
 const app= express();
 const port =3000;
@@ -91,6 +92,7 @@ async function updateCourseRecords(tableId, courseData) {
     try {
         var base = new Airtable({ apiKey: process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN }).base(process.env.AIRTABLE_COURSE_BASE_ID);
         // console.log(day, modules);
+        let dayno =1;
       for (const [day, modules] of Object.entries(courseData)) {
         console.log(`Creating record for ${day}...`);
         // Extract module content as strings
@@ -100,7 +102,7 @@ async function updateCourseRecords(tableId, courseData) {
         await base(tableId).create([
           {
             fields: {
-              "Day": Number(day),
+              "Day": Number(dayno++),
               "Module 1 Text": module1Content,
               "Module 2 Text": module2Content,
               "Module 3 Text": module3Content
@@ -152,10 +154,10 @@ const generateCourse = async()=>{
        for(let i=0;i<approvedRecords.length;i++){
               const record =approvedRecords[i];
             //   const id = approvedRecords[i][0];
-              const {Phone,Topic,Name,Goal,Style,Language} = record;
+              const {Phone,Topic,Name,Goal,Style,Language,"Next Day":NextDay} = record;
             //   console.log("Generating course for ",id);
               try {
-                const prompt=`I want to teach on the topic of ${Topic} for a 3-day program in ${Language} in teaching style of ${Style} my students goal is to ${Goal}. Each day should have three modules, with each module including comprehensive and complete content suitable for teaching. I dont know anyhting about topic give me a word to word script that i will read there .Provide the content in JSON format for easy integration into Airtable.
+                const prompt=`I want to teach on the topic of ${Topic} for a 3-day program in ${Language} in teaching style of ${Style} my students goal is to ${Goal}. Each day should have three modules, with each module including comprehensive and complete content suitable for teaching. I dont know anyhting about topic give me a word to word script that i will read there .Provide the content in JSON format for easy integration into Airtable. Give proper formating , for new line use '\n' character , and can add some emojis. Each module should be 6-7 statements long minimum.
 
 
 
@@ -216,8 +218,10 @@ Please ensure that each modules content dont talk about what we are going to lea
                     const courseData = JSON.parse(response.data.choices[0].message.content);
                     // console.log(courseData);
                     const Tableid = await createTable(Topic+"_"+Phone);
-                    updateCourseRecords(Tableid, courseData);
-                    cleanUpStudentTable(Phone,"Content Created");
+                    await updateCourseRecords(Tableid, courseData);
+                    await cleanUpStudentTable(Phone,"Content Created");
+                    console.log("-->",NextDay, Topic, "generic_course_template", Phone);
+                    await sendTemplateMessage(NextDay, Topic, "generic_course_template", Phone);
                     
 
                 }else{
