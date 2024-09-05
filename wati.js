@@ -99,7 +99,7 @@ const sendInteractiveButtonsMessage = async (hTxt, bTxt, btnTxt, senderID) => {
 }
 
 const sendText = async (msg, senderID) => {
-
+    console.log("Sending message to ", senderID);
     var options = {
         'method': 'POST',
         'url': 'https://' + process.env.URL + '/api/v1/sendSessionMessage/' + senderID,
@@ -147,22 +147,7 @@ const sendListInteractive = async (data, body, btnText, senderID) => {
     });
 }
 
-/**
- * [
-                {
-                    "text": "Yes "
-                },
-                {
-                    "text": "No "
-                },
-                {
-                    "text": "No 2"
-                }
-            ]
- * @param {*} data 
- * @param {*} body 
- * @param {*} senderID 
- */
+
 const sendDynamicInteractiveMsg = async (data, body, senderID) => {
 
     var options = {
