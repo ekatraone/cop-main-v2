@@ -5,7 +5,7 @@ const test = require('./test.js');
 const cors = require('cors');
 const cert = require('./certificate')
 const course_approval = require('./course_status');
-
+var Airtable = require('airtable');
 const WA = require('./wati');
 const airtable = require("./airtable_methods");
 const outro = require('./outroflow');
@@ -13,127 +13,182 @@ const outro = require('./outroflow');
 const mongoose = require("mongoose");
 const mongodb = require('./mongodb');
 const cop = require('./index');
+const fs = require('fs');
+const request = require('request');
 const webApp = express();
+const { sendText, sendTemplateMessage ,sendMedia} = require('./wati');
 
 webApp.use(express.json());
 webApp.use(cors());
 
-// Ensure the Airtable API key is available in the environment variables
-// const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY;
 
-// Initialize Airtable with your API key
-// const Airtable = require('airtable');
-// const base = new Airtable({ apiKey: AIRTABLE_API_KEY }).base('appN5RpQTuayNU9xL');
-const base =process.env.student_base
+const getStudentData_Created = async (waId) => {
+    var base = new Airtable({ apiKey: process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN }).base(process.env.AIRTABLE_STUDENT_BASE_ID);
+    try {
+        console.log("Getting student data....");
 
-// MONGO_URL = `mongodb+srv://${process.env.MONGOUSER}:${process.env.MONGOPASSWORD}@cluster0.m3gwy.mongodb.net/?retryWrites=true&w=majority`
-// MONGO_URL = "mongodb://localhost:27017"
+        const records = await base('Student').select({
+            filterByFormula: `AND({Course Status} = 'Content Created', {Phone} = '${waId}',{Progress}='Pending')`,
+        })
+            .all();
+        console.log(records);
+        const filteredRecords = records.map(record => record.fields);
+        return filteredRecords; // Note : this returns list of objects
+    } catch (error) {
+        console.error("Failed getting approved data", error);
+    }
+}
+const updateStudentTableNextDayModule = async (waId, NextDay, NextModule) => {
+    var base = new Airtable({ apiKey: process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN }).base(process.env.AIRTABLE_STUDENT_BASE_ID);
+    try {
+        let progress = "Pending";
+        const CurrentDay = NextDay;
+        const CurrentModule = NextModule;
 
-// mongoose.connect(MONGO_URL)
-//     .then((x) => {
-//         console.log(`Connected to Mongo! Database name: "${x.connections[0].name}"`)
+        // Logic to update NextDay and NextModule
+        if (NextModule == 3) {
+            NextDay++;
+            NextModule = 1;
+        } else {
+            NextModule++;
+        }
+        if (NextDay == 4) progress = "Completed";
 
-//     })
-//     .catch((err) => {
-//         console.error("Error connecting to mongo", err);
-//     });
+        console.log("Updating student data....");
+
+        // Fetching the record with the specified phone and other filters
+        const records = await base('Student').select({
+            filterByFormula: `AND({Course Status} = 'Content Created', {Phone} = '${waId}', {Progress} = 'Pending')`,
+        }).all();
+
+        if (records.length === 0) {
+            console.log("No matching records found.");
+            return; // Exit early if no records are found
+        }
+
+        const record = records[0];  // No need to map if we know there's a record
+        const recordId = record.id;
+
+        // Updated data to be patched into the record
+        const updatedRecord = {
+            "Module Completed": CurrentModule,
+            "Day Completed": CurrentDay,
+            "Next Day": NextDay,
+            "Next Module": NextModule,
+            "Progress": progress
+        };
+
+        console.log("Record ID to update:", recordId);
+        console.log("Updated record data:", updatedRecord);
+
+        // Updating the record (removed the extra "fields" key)
+        await base('Student').update(recordId, updatedRecord);
+
+        console.log("Record updated successfully");
+
+    } catch (error) {
+        console.error("Failed to update record", error);
+    }
+};
+
+
+const getCourseContent = async (courseTableName, NextModule, NextDay) => {
+    var base = new Airtable({ apiKey: process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN }).base(process.env.AIRTABLE_COURSE_BASE_ID);
+    try {
+        console.log(NextDay, " ", NextModule);
+        console.log("Getting course data from tables " + courseTableName + "....");
+        const records = await base(courseTableName).select({
+            filterByFormula: `{Day} = ${NextDay}`,
+        })
+            .all()
+            .catch(err => console.log(err));
+        console.log(records);
+        return records;
+
+    } catch (error) {
+        console.error("Failed getting approved data", error);
+    }
+}
+
+const getCourseCreatedStudent_airtable = async (waId) => {
+    try {
+
+        const records = await getStudentData_Created(waId);
+        if (!records || records.length === 0) {
+            console.log("No records found");
+            return;
+        }
+        for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            let { Phone, Topic, Name, Goal, Style, Language, "Next Day": NextDay, "Next Module": NextModule } = record;
+            const courseTableName = Topic + "_" + Phone;
+            console.log(courseTableName, NextModule, NextDay);
+            const courseData = await getCourseContent(courseTableName, NextModule, NextDay);
+            if (!courseData || courseData.length === 0) {
+                console.log("No course data found");
+                return;
+            }
+            const currentModule = courseData[0].fields[`Module ${NextModule} Text`];
+            const initialText = `Hello ${Name},\n\nI hope you are doing well. Here is your course content for today.\n Module ${NextModule}\n\n`;
+            await sendText(initialText, Phone);
+            setTimeout(() => { sendText(currentModule, Phone); }, 1000);
+
+            await updateStudentTableNextDayModule(Phone, NextDay, NextModule);
+            if (NextModule !== 3 || NextDay !== 3) {
+                if (NextModule === 3) NextDay++;
+                setTimeout(() => { sendTemplateMessage(NextDay, Topic, "generic_course_template", Phone); sendText("Press Start Day to get started with next Module", Phone); }, 10000);
+
+            } else {
+                setTimeout(() => {
+                    sendText("Congratulations🎉🎊! You have completed the course. Please click on the link below to get your certificate", Phone);
+                    // const gifFilePath = './assets/congratulations.gif';  // Path to the GIF file
+                    // const fileStream = fs.createReadStream(gifFilePath);  // Read file stream
+                    // const fileName = 'mygif.gif';  // File name
+                    // const recipientId = `${Phone}`;  // WhatsApp number (recipient's sender ID)
+
+                    // sendMedia(fileStream, fileName, recipientId);
+                }, 10000);
+            }
+
+            console.log(currentModule);
+        }
+    } catch (error) {
+        console.error("Failed getting approved data", error);
+
+    }
+}
 
 
 webApp.post('/cop', async (req, res) => {
-    // console.log(Object.keys(req.body).length === 0)
-
-    if (Object.keys(req.body).length !== 0) {
-        console.log("Request ", req.body);
-
-        let senderID = req.body.waId;
-        let name = req.body.senderName
-
-        let keyword = req.body.text
-
-        let does_course_exist = await airtable.find_alfred_course_record(senderID).then().catch(e => console.error("Error finding Course " + e));
+    const event = req.body;
 
 
-        let does_student_exist = await airtable.find_student_record(senderID).then().catch(e => console.log("Find student record error " + e))
-        if (does_student_exist?.length != 0) {
+    if (event.eventType === 'message' && event.buttonReply && event.buttonReply.text === 'Start Day') {
+        console.log("Button Clicked");
 
-            let course = await airtable.findTable(senderID).then().catch(e => console.log("Fidn Table error" + e))
-            let last_msg = await airtable.findLastMsg(senderID).then().catch(e => console.log("Find last msg error " + e))
-            let id = await airtable.getID(senderID).then().catch(e => console.log("Find ID error " + e))
-            let currentDay = await airtable.findField("Next Day", senderID,).then().catch(e => console.log("Find current day error " + e))
+        getCourseCreatedStudent_airtable(event.waId);
 
-            let current_module = await airtable.findField("Next Module", senderID).then().catch(e => console.log("current day error" + e))
+        console.log(event);
 
 
-            if (course != "Web 3" && course != "Entrepreneurship" && course != "Financial Literacy") {
-                if (keyword == "Start Day") {
+        const buttonText = event.buttonReply.text;
+        const buttonPayload = event.buttonReply.payload;
 
-                    test.sendModuleContent(senderID).then().catch(e => console.log("Finish start template error " + e))
-
-                }
-
-
-                else if (keyword == "Yes, Next" || keyword == "Start now" || keyword == "Next." || keyword == "Next Step" || keyword == "Step by step") {
-
-                    test.markModuleComplete(senderID).then().catch(e => console.info("Finish module template error " + e))
-                }
+        console.log(`Button Text: ${buttonText}`);
+        console.log(`Button Payload: ${buttonPayload}`);
 
 
-                if (last_msg != undefined) {
-                    if (last_msg.includes("Would you like to receive a certificate confirming the completion of your course?") || last_msg == "document") {
-
-                        console.log("Updating certificate keyword ")
-
-                        console.log("last_msg 1 ", last_msg, keyword)
-
-                        if (keyword == "Yes!") {
-                            let name = await airtable.findField("Name", senderID).then().catch(e => console.log("Find name error " + e))
-
-                            console.log(`Sending certificate to ${name}`)
-                            const certificate_pdf = await cert.createCertificate(name, course)
-
-                            WA.sendText(`Kudos for the efforts you have made. 
-                                Best wishes fellow learner, ${name}`, senderID)
-                            airtable.updateField(id, "Day Completed", currentDay)
-                            airtable.updateField(id, "Next Day", currentDay + 1)
-
-                            airtable.updateField(id, "Last_Msg", "document")
-
-                            setTimeout(async () => {
-                                await WA.sendMedia(certificate_pdf, `${name}_certificate.pdf`, senderID)
-                            }, 3000)
-
-                        }
-                        else if (keyword == "No, I'll pass") {
-
-                            airtable.updateField(id, "Last_Msg", "document")
-
-                            airtable.updateField(id, "Day Completed", currentDay)
-                            airtable.updateField(id, "Next Day", currentDay + 1)
-
-                            WA.sendText(`If you want to learn more about *Ekatra*, \nVisit _https://www.ekatra.one_`, senderID)
-
-
-                        }
-
-                    }
-                }
-
-            }
-
-            return res.status(200).send("Success");
-        }
-
-        else {
-            console.log("Response")
-            return res.status(200).send("Success");
-        }
     }
-})
+
+
+    res.sendStatus(200);//send acknowledgement to wati server
+});
+
 
 webApp.get("/ping", async (req, res) => {
     console.log("Pinging whatsapp server")
     course_approval.course_approval()
-    res.send("ok")
+    res.send("Booting Up AI Engine.........")
 })
 
 webApp.listen(process.env.PORT, () => {
