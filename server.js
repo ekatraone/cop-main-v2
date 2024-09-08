@@ -3,7 +3,7 @@ const express = require('express');
 require('dotenv').config("./env");
 const test = require('./test.js');
 const cors = require('cors');
-const cert = require('./certificate')
+const {createCertificate} = require('./certificate')
 const course_approval = require('./course_status');
 var Airtable = require('airtable');
 const WA = require('./wati');
@@ -17,6 +17,7 @@ const fs = require('fs');
 const request = require('request');
 const webApp = express();
 const { sendText, sendTemplateMessage ,sendMedia} = require('./wati');
+const { create } = require('domain');
 
 webApp.use(express.json());
 webApp.use(cors());
@@ -139,15 +140,13 @@ const getCourseCreatedStudent_airtable = async (waId) => {
                 setTimeout(() => { sendTemplateMessage(NextDay, Topic, "generic_course_template", Phone); sendText("Press Start Day to get started with next Module", Phone); }, 10000);
 
             } else {
-                setTimeout(() => {
-                    sendText("Congratulations🎉🎊! You have completed the course. Please click on the link below to get your certificate", Phone);
-                    // const gifFilePath = './assets/congratulations.gif';  // Path to the GIF file
-                    // const fileStream = fs.createReadStream(gifFilePath);  // Read file stream
-                    // const fileName = 'mygif.gif';  // File name
-                    // const recipientId = `${Phone}`;  // WhatsApp number (recipient's sender ID)
-
-                    // sendMedia(fileStream, fileName, recipientId);
-                }, 10000);
+                setTimeout(async() => {
+                    sendText("Congratulations🎉🎊! You have completed the course. We are preparing your certificate of completion", Phone);
+                    createCertificate(Name, Topic);
+                    setTimeout(() => {
+                        sendMedia("certificate.pdf",Name,"919405785390","Hey👋, your course completion certificate is ready!! Don't forget to share your achievement.");
+                    },5000);
+                })
             }
 
             console.log(currentModule);
