@@ -10,11 +10,13 @@ async function createCertificate(name, course_name) {
         size: 'A4',
     });
     doc.rect(0, 0, doc.page.width, doc.page.height).fill('#fff');
+    const stream = doc.pipe(new (require('stream')).PassThrough());
     ``
     doc.fontSize(10);
 
     doc.pipe(fs.createWriteStream('certificate.pdf'))
 
+    
     doc.image('./assets/corners.png', -1, 0, { scale: 0.585 }, { fit: [doc.page.width, doc.page.height], align: 'center' })
     // doc.image('assets/Union.png', 35, 20, { fit: [200, 200], align: 'center' })
 
@@ -97,8 +99,11 @@ async function createCertificate(name, course_name) {
 
 
     doc.end();
-    console.log("Certificate created! . Pushing to the user");
-    return await getStream.buffer(doc)
+    // Convert the stream into a buffer
+    const pdfBuffer = await getStream.buffer(stream);
+
+    console.log("Certificate created! Returning the buffer.");
+    return pdfBuffer;
 
 }
 
