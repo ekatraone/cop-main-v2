@@ -115,15 +115,16 @@ async function updateCourseRecords(tableId, courseData) {
       console.error('Error creating records:', error);
     }
 }
-async function cleanUpStudentTable(phoneNumber, status = "Approved") {
+async function cleanUpStudentTable(phoneNumber, status = "Content Created") {
     try {
+      console.log("Updating record for phone number:", phoneNumber);
         const base = new Airtable({ apiKey: process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN }).base(process.env.AIRTABLE_STUDENT_BASE_ID);
         
         // Step 1: Find the record by phone number
         const records = await base('Student').select({
-            filterByFormula: `{Phone} = "${phoneNumber}"`
-        }).firstPage();
-
+            filterByFormula: `AND({Phone} = ${phoneNumber},{Course Status}= "Approved")`
+        }).all();
+        console.log("Records",records);
         if (records.length === 0) {
             console.log("No record found with the specified phone number.");
             return;
@@ -219,7 +220,7 @@ Please ensure that each modules content dont talk about what we are going to lea
                     // console.log(courseData);
                     const Tableid = await createTable(Topic+"_"+Phone);
                     await updateCourseRecords(Tableid, courseData);
-                    await cleanUpStudentTable(Phone,"Content Created");
+                    await cleanUpStudentTable(Phone);
                     console.log("-->",NextDay, Topic, "generic_course_template", Phone);
                     await sendTemplateMessage(NextDay, Topic, "generic_course_template", Phone);
                     
