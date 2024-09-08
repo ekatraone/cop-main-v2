@@ -49,13 +49,10 @@ const getMessages = async (senderID, at) => {
 }
 
 
-const sendMedia = async (file, filename, senderID,msg) => {
-    // Define the file path you want to send
-    const filePath = `./${file}`; // adjust the path to your file
-    console.log(file, filename, senderID,msg);
+const sendMedia = async (buffer, filename, senderID, msg) => {
     // Create a form-data object to handle the file upload
     const form = new FormData();
-    form.append('file', fs.createReadStream(filePath), {
+    form.append('file', buffer, {
         contentType: 'application/pdf',
         filename: filename
     });
@@ -76,11 +73,9 @@ const sendMedia = async (file, filename, senderID,msg) => {
         console.log('File sent successfully');
     } catch (error) {
         console.error('Error sending file:', error.response ? error.response.data : error.message);
-        setTimeout(()=>{
-            sendMedia(file,filename,senderID,msg);
-        })
     }
 };
+
 
 
 const sendInteractiveButtonsMessage = async (hTxt, bTxt, btnTxt, senderID) => {
