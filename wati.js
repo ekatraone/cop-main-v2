@@ -1,7 +1,9 @@
 var request = require('request');
 require('dotenv').config("./env")
+const axios = require('axios');
+const FormData = require('form-data');
+const fs = require('fs');
 
-var request = require('request');
 
 const getMessages = async (senderID, at) => {
     return new Promise((resolve, reject) => {
@@ -45,30 +47,38 @@ const getMessages = async (senderID, at) => {
         });
     })
 }
-const sendMedia = async (file, filename, senderID) => {
-    var options = {
-        'method': 'POST',
-        'url': 'https://' + process.env.URL + '/api/v1/sendSessionFile/' + senderID,
-        'headers': {
-            'Authorization': process.env.API,
 
-        },
-        formData: {
-            'file': {
-                'value': file,
-                'options': {
-                    'filename': filename,
-                    'contentType': null
-                }
-            }
-        }
-    };
-    request(options, function (error, response) {
-        if (error) console.log(error)
-        //console.log(response.body);
+
+const sendMedia = async (file, filename, senderID,msg) => {
+    // Define the file path you want to send
+    const filePath = `./${file}`; // adjust the path to your file
+
+    // Create a form-data object to handle the file upload
+    const form = new FormData();
+    form.append('file', fs.createReadStream(filePath), {
+        contentType: 'application/pdf',
+        filename: filename
     });
 
-}
+    try {
+        // Make the POST request to WATI API
+        const response = await axios.post(
+            `https://${process.env.WATI_URL_FOR_CERTIFICATE}/api/v1/sendSessionFile/${senderID}?caption=${msg}`,
+            form,
+            {
+                headers: {
+                    'Authorization': process.env.WAIT_API, // your token here
+                    ...form.getHeaders()
+                }
+            }
+        );
+
+        console.log('File sent successfully');
+    } catch (error) {
+        console.error('Error sending file:', error.response ? error.response.data : error.message);
+    }
+};
+
 
 const sendInteractiveButtonsMessage = async (hTxt, bTxt, btnTxt, senderID) => {
     var options = {
