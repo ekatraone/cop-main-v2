@@ -142,10 +142,10 @@ const getCourseCreatedStudent_airtable = async (waId) => {
             } else {
                 setTimeout(async() => {
                     sendText("Congratulations🎉🎊! You have completed the course. We are preparing your certificate of completion", Phone);
-                    createCertificate(Name, Topic);
-                    setTimeout(() => {
-                        sendMedia("certificate.pdf",Name,Phone,"Hey👋, your course completion certificate is ready!! Don't forget to share your achievement.");
-                    },5000);
+                    const pdfbuffer = await createCertificate(Name, Topic);
+                    console.log(Name,Phone);
+                    sendMedia(pdfbuffer,Name,Phone,"Hey👋, your course completion certificate is ready!! Don't forget to share your achievement.");
+                    
                 })
             }
 
