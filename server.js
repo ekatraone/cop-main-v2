@@ -153,7 +153,7 @@ const getCourseCreatedStudent_airtable = async (waId) => {
                     // Send the certificate with retry logic
                     const sendCertificateWithRetries = async (retries = 3) => {
                         try {
-                            await sendMedia("certificate.pdf", Name, "919405785390", "Hey👋, your course completion certificate is ready!! Don't forget to share your achievement.");
+                            await sendMedia("certificate.pdf", Name, Phone, "Hey👋, your course completion certificate is ready!! Don't forget to share your achievement.");
                             console.log("Certificate sent successfully");
                         } catch (error) {
                             if (retries > 0) {
