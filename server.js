@@ -113,71 +113,49 @@ const getCourseContent = async (courseTableName, NextModule, NextDay) => {
 
 const getCourseCreatedStudent_airtable = async (waId) => {
     try {
+
         const records = await getStudentData_Created(waId);
         if (!records || records.length === 0) {
             console.log("No records found");
             return;
         }
-
         for (let i = 0; i < records.length; i++) {
             const record = records[i];
             let { Phone, Topic, Name, Goal, Style, Language, "Next Day": NextDay, "Next Module": NextModule } = record;
             const courseTableName = Topic + "_" + Phone;
             console.log(courseTableName, NextModule, NextDay);
-
             const courseData = await getCourseContent(courseTableName, NextModule, NextDay);
             if (!courseData || courseData.length === 0) {
                 console.log("No course data found");
                 return;
             }
-
             const currentModule = courseData[0].fields[`Module ${NextModule} Text`];
             const initialText = `Hello ${Name},\n\nI hope you are doing well. Here is your course content for today.\n Module ${NextModule}\n\n`;
-            
             await sendText(initialText, Phone);
             setTimeout(() => { sendText(currentModule, Phone); }, 1000);
 
             await updateStudentTableNextDayModule(Phone, NextDay, NextModule);
-
             if (NextModule !== 3 || NextDay !== 3) {
                 if (NextModule === 3) NextDay++;
-                setTimeout(() => { 
-                    sendTemplateMessage(NextDay, Topic, "generic_course_template", Phone); 
-                    sendText("Press Start Day to get started with next Module", Phone); 
-                }, 10000);
+                setTimeout(() => { sendTemplateMessage(NextDay, Topic, "generic_course_template", Phone); sendText("Press Start Day to get started with next Module", Phone); }, 10000);
+
             } else {
-                setTimeout(async () => {
-                    await sendText("Congratulations🎉🎊! You have completed the course. We are preparing your certificate of completion", Phone);
+                setTimeout(async() => {
+                    sendText("Congratulations🎉🎊! You have completed the course. We are preparing your certificate of completion", Phone);
                     createCertificate(Name, Topic);
-
-                    // Send the certificate with retry logic
-                    const sendCertificateWithRetries = async (retries = 3) => {
-                        try {
-                            await sendMedia("certificate.pdf", Name, Phone, "Hey👋, your course completion certificate is ready!! Don't forget to share your achievement.");
-                            console.log("Certificate sent successfully");
-                        } catch (error) {
-                            if (retries > 0) {
-                                console.log(`Error sending certificate. Retrying... Attempts left: ${retries}`);
-                                setTimeout(() => sendCertificateWithRetries(retries - 1), 1000);
-                            } else {
-                                console.error("Failed to send certificate after multiple attempts", error);
-                            }
-                        }
-                    };
-
-                    // Call the function to send the certificate
                     setTimeout(() => {
-                        sendCertificateWithRetries();
-                    }, 5000);
-                }, 5000); // Optional delay before sending the certificate completion message
+                        sendMedia("certificate.pdf",Name,"919405785390","Hey👋, your course completion certificate is ready!! Don't forget to share your achievement.");
+                    },5000);
+                })
             }
 
             console.log(currentModule);
         }
     } catch (error) {
         console.error("Failed getting approved data", error);
+
     }
-};
+}
 
 
 webApp.post('/cop', async (req, res) => {
