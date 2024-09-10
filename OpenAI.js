@@ -158,51 +158,63 @@ const generateCourse = async()=>{
               const {Phone,Topic,Name,Goal,Style,Language,"Next Day":NextDay} = record;
             //   console.log("Generating course for ",id);
               try {
-                const prompt=`I want to teach on the topic of ${Topic} for a 3-day program in ${Language} in teaching style of ${Style} my students goal is to ${Goal}. Each day should have three modules, with each module including comprehensive and complete content suitable for teaching. I dont know anyhting about topic give me a word to word script that i will read there .Provide the content in JSON format for easy integration into Airtable. Give proper formating , for new line use '\n' character , and can add some emojis. Each module should be 6-7 statements long minimum.
+                const prompt=`Create a 3-day micro-course on ${Topic} in ${Language}, using the teaching style of ${Style}. The course will be delivered via WhatsApp, and the students' goal is to ${Goal}.
 
+Highly Strict Guidelines:
+1. Structure: 3 days, 3 short modules per day (9 modules total)
+2. Content: Provide brief, engaging content for each module
+3. Module length: Maximum 4-5 short sentences
+4. Style: Incorporate the specified teaching style
+5. Language: All content in the specified language
+6. Engagement: Include 1-2 relevant emojis per module to enhance engagement
+7. Formatting: Use '\n' for new lines
 
+Content Approach:
+- Start each module with a hook or key point
+- Focus on one core concept or skill per module
+- Use clear, simple language suitable for mobile reading
+- Include a brief actionable task or reflection question at the end of each module
 
-**Format Template:**
-
+Output Format:
+Provide the micro-course in JSON format:
 
 {
   "day1": {
     "module1": {
-      "content": "Detailed lecture content for Module 1..."
+      "content": "Concise content for Day 1, Module 1..."
     },
     "module2": {
-      "content": "Detailed lecture content for Module 2..."
+      "content": "Concise content for Day 1, Module 2..."
     },
     "module3": {
-      "content": "Detailed lecture content for Module 3..."
+      "content": "Concise content for Day 1, Module 3..."
     }
   },
   "day2": {
     "module1": {
-      "content": "Detailed lecture content for Module 1..."
+      "content": "Concise content for Day 2, Module 1..."
     },
     "module2": {
-      "content": "Detailed lecture content for Module 2..."
+      "content": "Concise content for Day 2, Module 2..."
     },
     "module3": {
-      "content": "Detailed lecture content for Module 3..."
+      "content": "Concise content for Day 2, Module 3..."
     }
   },
   "day3": {
     "module1": {
-      "content": "Detailed lecture content for Module 1..."
+      "content": "Concise content for Day 3, Module 1..."
     },
     "module2": {
-      "content": "Detailed lecture content for Module 2..."
+      "content": "Concise content for Day 3, Module 2..."
     },
     "module3": {
-      "content": "Detailed lecture content for Module 3..."
+      "content": "Concise content for Day 3, Module 3..."
     }
   }
 }
-Instructions:
 
-Please ensure that each modules content dont talk about what we are going to learn in this module or day just start teaching .In one lne you can tell what we are going to learn then quickly start teaching in detail  Replace the placeholder text in "content" with the complete and detailed lecture material for each module.
+Ensure each module is brief yet informative, engaging, and contributes directly to the students' goal. The content should be optimized for quick reading and easy understanding on a mobile device.
 `
                 messages=[{ "role": "system", "content": "You are a subject matter expert. Provide only the JSON structure without any additional text." },
                     { "role": "user", "content": prompt }]
