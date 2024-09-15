@@ -64,7 +64,7 @@ const sendMedia = async (buffer, filename, senderID, msg) => {
             form,
             {
                 headers: {
-                    'Authorization': process.env.WAIT_API, // your token here
+                    'Authorization': process.env.API, // your token here
                     ...form.getHeaders()
                 }
             }
