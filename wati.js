@@ -72,7 +72,7 @@ const sendMedia = async (buffer, filename, senderID, msg) => {
 
         console.log('File sent successfully');
     } catch (error) {
-        console.error('Error sending file:', error.response ? error.response.data : error.message);
+        console.error('Error sending file:', error);
     }
 };
 
