@@ -16,7 +16,7 @@ const cop = require('./index');
 const fs = require('fs');
 const request = require('request');
 const webApp = express();
-const { sendText, sendTemplateMessage ,sendMedia} = require('./wati');
+const { sendText, sendTemplateMessage ,sendMedia,sendInteractiveButtonsMessage} = require('./wati');
 const { create } = require('domain');
 
 webApp.use(express.json());
@@ -137,15 +137,21 @@ const getCourseCreatedStudent_airtable = async (waId) => {
             await updateStudentTableNextDayModule(Phone, NextDay, NextModule);
             if (NextModule !== 3 || NextDay !== 3) {
                 if (NextModule === 3) NextDay++;
-                setTimeout(() => { sendTemplateMessage(NextDay, Topic, "generic_course_template", Phone); sendText("Press Start Day to get started with next Module", Phone); }, 10000);
+                setTimeout(() => { 
+                    if(NextModule ===3){
+                        sendTemplateMessage(NextDay, Topic, "generic_course_template", Phone); sendText("Press Start Day to get started with next Module", Phone); 
+                    }else{
+                        sendInteractiveButtonsMessage(`Hey👋 ${Name}`, "Don't let the learning stop!! Start next Module", "Next Module", Phone);
+                    }
+                }, 10000);
 
             } else {
                 setTimeout(async() => {
                     sendText("Congratulations🎉🎊! You have completed the course. We are preparing your certificate of completion", Phone);
                     const pdfbuffer = await createCertificate(Name, Topic);
-                    console.log(Name,Phone);
-                    sendMedia(pdfbuffer,Name,Phone,"Hey👋, your course completion certificate is ready!! Don't forget to share your achievement.");
-                    
+                    setTimeout(() => {
+                        sendMedia(pdfbuffer,Name,Phone,"Hey👋, your course completion certificate is ready!! Don't forget to share your achievement.");
+                    },5000);
                 })
             }
 
@@ -162,7 +168,7 @@ webApp.post('/cop', async (req, res) => {
     const event = req.body;
 
 
-    if (event.eventType === 'message' && event.buttonReply && event.buttonReply.text === 'Start Day') {
+    if ((event.eventType === 'message' && event.buttonReply && event.buttonReply.text === 'Start Day')) {
         console.log("Button Clicked");
 
         getCourseCreatedStudent_airtable(event.waId);
@@ -173,10 +179,16 @@ webApp.post('/cop', async (req, res) => {
         const buttonText = event.buttonReply.text;
         const buttonPayload = event.buttonReply.payload;
 
-        console.log(`Button Text: ${buttonText}`);
-        console.log(`Button Payload: ${buttonPayload}`);
+        // console.log(`Button Text: ${buttonText}`);
+        // console.log(`Button Payload: ${buttonPayload}`);
 
 
+    }else if(event.type === 'interactive' &&  event.text === 'Next Module'){
+        console.log("Button Clicked");
+
+        getCourseCreatedStudent_airtable(event.waId);
+
+        
     }
 
 
