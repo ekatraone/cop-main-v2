@@ -135,11 +135,12 @@ const getCourseCreatedStudent_airtable = async (waId) => {
             setTimeout(() => { sendText(currentModule, Phone); }, 1000);
 
             await updateStudentTableNextDayModule(Phone, NextDay, NextModule);
+            
             if (NextModule !== 3 || NextDay !== 3) {
                 if (NextModule === 3) NextDay++;
                 setTimeout(() => { 
                     if(NextModule ===3){
-                        sendTemplateMessage(NextDay, Topic, "generic_course_template", Phone); sendText("Press Start Day to get started with next Module", Phone); 
+                        // sendTemplateMessage(NextDay, Topic, "generic_course_template", Phone); sendText("Press Start Day to get started with next Module", Phone); 
                     }else{
                         sendInteractiveButtonsMessage(`Hey👋 ${Name}`, "Don't let the learning stop!! Start next Module", "Next Module", Phone);
                     }
@@ -163,7 +164,22 @@ const getCourseCreatedStudent_airtable = async (waId) => {
     }
 }
 
+const get_student_table_send_remainder = async () => {
+    var base = new Airtable({ apiKey: process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN }).base(process.env.AIRTABLE_STUDENT_BASE_ID);
+    const records = await base('Student').select({
+        filterByFormula: `AND({Course Status} = 'Content Created', {Progress} = 'Pending')`,
+    }).all();
+    for(let i=0;i<records.length;i++){
+        let { Phone, Topic, Name, Goal, Style, Language, "Next Day": NextDay, "Next Module": NextModule } = records[i].fields;
+        sendTemplateMessage(NextDay, Topic, "generic_course_template", Phone); sendText("Press Start Day to get started with next Module", Phone);
 
+    }
+}
+
+webApp.get('/nextday', async (req, res) => {
+    get_student_table_send_remainder();
+    res.send("Sending Remainder to students");
+});
 webApp.post('/cop', async (req, res) => {
     const event = req.body;
 
