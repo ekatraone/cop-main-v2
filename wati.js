@@ -64,7 +64,7 @@ const sendMedia = async (buffer, filename, senderID, msg) => {
             form,
             {
                 headers: {
-                    'Authorization': process.env.API, // your token here
+                    'Authorization': process.env.WAIT_API, 
                     ...form.getHeaders()
                 }
             }
@@ -95,6 +95,37 @@ const sendInteractiveButtonsMessage = async (hTxt, bTxt, btnTxt, senderID) => {
             "buttons": [
                 {
                     "text": btnTxt
+                }
+            ]
+        })
+
+    };
+    request(options, function (error, response) {
+        if (error) console.log(error);
+        console.log(response.body);
+    });
+}
+
+const sendInteractiveDualButtonsMessage = async (hTxt, bTxt, btnTxt1, btnTxt2, senderID) => {
+    var options = {
+        'method': 'POST',
+        'url': 'https://' + process.env.URL + '/api/v1/sendInteractiveButtonsMessage?whatsappNumber=' + senderID,
+        'headers': {
+            'Authorization': process.env.API,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            "header": {
+                "type": "Text",
+                "text": hTxt
+            },
+            "body": bTxt,
+            "buttons": [
+                {
+                    "text": btnTxt1
+                },
+                {
+                    "text": btnTxt2
                 }
             ]
         })
@@ -212,6 +243,7 @@ module.exports = {
     sendListInteractive,
     sendDynamicInteractiveMsg,
     getMessages,
-    sendTemplateMessage
+    sendTemplateMessage,
+    sendInteractiveDualButtonsMessage
 }
 
