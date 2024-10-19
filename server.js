@@ -16,7 +16,8 @@ const cop = require('./index');
 const fs = require('fs');
 const request = require('request');
 const webApp = express();
-const { sendText, sendTemplateMessage ,sendMedia,sendInteractiveButtonsMessage} = require('./wati');
+const { sendText, sendTemplateMessage ,sendMedia,sendInteractiveButtonsMessage , sendInteractiveDualButtonsMessage} = require('./wati');
+const{solveUserQuery} = require('./OpenAI.js');
 const { create } = require('domain');
 
 webApp.use(express.json());
@@ -92,6 +93,23 @@ const updateStudentTableNextDayModule = async (waId, NextDay, NextModule) => {
     }
 };
 
+const getStudentData_Pending = async (waId) => {
+    var base = new Airtable({ apiKey: process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN }).base(process.env.AIRTABLE_STUDENT_BASE_ID);
+    try {
+        console.log("Getting student data....");
+
+        const records = await base('Student').select({
+            filterByFormula: `AND({Course Status} = 'Content Created', {Phone} = '${waId}',{Progress}='Pending')`,
+        })
+            .all();
+        console.log(records);
+        const filteredRecords = records.map(record => record.fields);
+        return filteredRecords; // Note : this returns list of objects
+    } catch (error) {
+        console.error("Failed getting approved data", error);
+    }
+}
+
 
 const getCourseContent = async (courseTableName, NextModule, NextDay) => {
     var base = new Airtable({ apiKey: process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN }).base(process.env.AIRTABLE_COURSE_BASE_ID);
@@ -140,7 +158,9 @@ const getCourseCreatedStudent_airtable = async (waId) => {
                 if (NextModule === 3) NextDay++;
                 setTimeout(() => { 
                     if(NextModule ===3){
-                        // sendTemplateMessage(NextDay, Topic, "generic_course_template", Phone); sendText("Press Start Day to get started with next Module", Phone); 
+                        //Day over
+                        // Now QNA time: user can ask for doubts.
+                        sendInteractiveDualButtonsMessage(`Hey👋 ${Name}`, "You have completed the day's module. Do you have any doubts?", "Yes", "No", Phone); 
                     }else{
                         sendInteractiveButtonsMessage(`Hey👋 ${Name}`, "Don't let the learning stop!! Start next Module", "Next Module", Phone);
                     }
@@ -176,10 +196,70 @@ const get_student_table_send_remainder = async () => {
     }
 }
 
+const setDountBit = async (waId, doubtBit,Title) => {
+    var base = new Airtable({ apiKey: process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN }).base(process.env.AIRTABLE_STUDENT_BASE_ID);
+    try {
+        console.log("Setting doubt bit....");
+
+        // Fetching the record with the specified phone and other filters
+        const records = await base('Student').select({
+            filterByFormula: `AND({Phone} = '${waId}', {Progress} = 'Pending',{Topic}='${Title}')`,
+        }).all();
+
+        if (records.length === 0) {
+            console.log("No matching records found.");
+            return; // Exit early if no records are found
+        }
+
+        const record = records[0];  // No need to map if we know there's a record
+        const recordId = record.id;
+
+        // Updated data to be patched into the record
+        const updatedRecord = {
+            "Doubt": doubtBit
+        };
+
+        console.log("Record ID to update:", recordId);
+        console.log("Updated record data:", updatedRecord);
+
+        // Updating the record (removed the extra "fields" key)
+        await base('Student').update(recordId, updatedRecord);
+
+        console.log("Record updated successfully");
+
+    } catch (error) {
+        console.error("Failed to update record", error);
+    }
+}
+
+const getDoubtBit = async (waId,Title) => {
+    var base = new Airtable({ apiKey: process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN }).base(process.env.AIRTABLE_STUDENT_BASE_ID);
+    try {
+        console.log("Getting doubt bit....");
+
+        // Fetching the record with the specified phone and other filters
+        const records = await base('Student').select({
+            filterByFormula: `AND({Phone} = '${waId}', {Progress} = 'Pending',{Topic}='${Title}')`,
+        }).all();
+
+        if (records.length === 0) {
+            console.log("No matching records found.");
+            return; // Exit early if no records are found
+        }
+
+        
+        return record.fields.Doubt;
+
+    } catch (error) {
+        console.error("getdoubtbit fucntion: Failed to update record", error);
+    }
+}
+
 webApp.get('/nextday', async (req, res) => {
     get_student_table_send_remainder();
     res.send("Sending Remainder to students");
 });
+
 webApp.post('/cop', async (req, res) => {
     const event = req.body;
 
@@ -205,7 +285,64 @@ webApp.post('/cop', async (req, res) => {
         getCourseCreatedStudent_airtable(event.waId);
 
         
-    }
+    }else if(event.type === 'interactive' &&  event.text === 'Yes'){
+        console.log("Button Clicked Yes");
+        try {
+            const records = await getStudentData_Pending(event.waId);
+            const record = records[0];
+            const { Phone, Topic, Name, Goal, Style, Language, "Next Day": NextDay, "Next Module": NextModule,"Doubt":Doubt } = record;
+            //set doubt bit to true;
+            setDountBit(event.waId,1,Topic);
+        } catch (error) {
+            console.error("Failed getting approved data", error);
+        }
+        sendText("Please type your query", event.waId);
+    }else if(event.type==='interactive' && event.text === 'No'){
+        //set doubt bit to false;
+        try {
+            const records = await getStudentData_Pending(event.waId);
+            const record = records[0];
+            const { Phone, Topic, Name, Goal, Style, Language, "Next Day": NextDay, "Next Module": NextModule,"Doubt":Doubt } = record;
+            //set doubt bit to true;
+            setDountBit(event.waId,0,Topic);
+        } catch (error) {
+            console.error("Failed getting approved data", error);
+        }
+        
+        console.log("Button Clicked No");
+    }else if(event.eventType === 'message'){
+        let flag=false;
+        let doubt=0;
+        let name="User";
+        let Phone=event.waId;
+        try {
+            const records = await getStudentData_Pending(event.waId);
+            const record = records[0];
+            const { "Name":Name, "Doubt":Doubt } = record;
+            flag = true;
+            doubt = Doubt;
+            name=Name;
+            
+        } catch (error) {
+            console.error("Failed getting approved data", error);
+        }
+        if(flag && doubt==1){
+            //User query
+            console.log("User Query", event.text);
+            await solveUserQuery(event.text, event.waId);
+            setTimeout(async () => {
+                await sendInteractiveDualButtonsMessage(
+                    `Hey👋 ${name}`, 
+                    "Any other doubts?", 
+                    "Yes", 
+                    "No", 
+                    Phone
+                );
+            }, 1000);  // 10 seconds delay
+
+        }
+
+    };
 
 
     res.sendStatus(200);//send acknowledgement to wati server
@@ -218,6 +355,7 @@ webApp.get("/ping", async (req, res) => {
     res.send("Booting Up AI Engine.........")
 })
 
-webApp.listen(process.env.PORT, () => {
-    console.log(`Server is up and running at ${process.env.PORT}`);
+const port = process.env.port || 3000;
+webApp.listen(port, () => {
+    console.log(`Server is up and running at ${port}`);
 });
