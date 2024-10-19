@@ -2,7 +2,7 @@
 const Airtable = require('airtable');
 require('dotenv').config();
 const express = require('express');
-const { sendTemplateMessage } = require('./wati');
+const { sendTemplateMessage,sendText } = require('./wati');
 const axios = require('axios');
 
 
@@ -97,7 +97,7 @@ const generateCourse = async () => {
             const { Phone, Topic, Name, Goal, Style, Language, "Next Day": NextDay } = record;
             //   console.log("Generating course for ",id);
             try {
-                const prompt = `Create a 3-day micro-course on ${Topic} in ${Language} using teaching style of ${Style}, delivered via WhatsApp. The students' goal is to understand the gaming landscape and career opportunities in the industry. Strict Guidelines: Structure: 3 days, 3 modules per day (total of 9 modules). Content: Each module must contain engaging and informative content, with a minimum of 10 sentences. Module Length: Ensure that each module is between 40-45 sentences as content, providing comprehensive insights while remaining concise. Style: Use a professional teaching style that encourages learning and engagement. Language: All content must be in English. Engagement: Incorporate 1-2 relevant emojis in each module to enhance engagement. Formatting: Use '\n' for new lines in the JSON format. Content Approach: Start each module with a hook or key point. Focus on one core concept or skill per module. Use clear, simple language suitable for mobile reading. Include a brief actionable task or reflection question at the end of each module. Output Format: Provide the micro-course in JSON format as follows:{ "day1": { "module1": { "content": "Concise content for Day 1, Module 1..." }, "module2": { "content": "Concise content for Day 1, Module 2..." }, "module3": { "content": "Concise content for Day 1, Module 3..." } }, "day2": { "module1": { "content": "Concise content for Day 2, Module 1..." }, "module2": { "content": "Concise content for Day 2, Module 2..." }, "module3": { "content": "Concise content for Day 2, Module 3..." } }, "day3": { "module1": { "content": "Concise content for Day 3, Module 1..." }, "module2": { "content": "Concise content for Day 3, Module 2..." }, "module3": { "content": "Concise content for Day 3, Module 3..." } } } dont give any other words other than json 
+                const prompt = `Create a 3-day micro-course on ${Topic} in ${Language} using teaching style of ${Style}, delivered via WhatsApp. The students' goal is to understand the gaming landscape and career opportunities in the industry. Strict Guidelines: Structure: 3 days, 3 modules per day (total of 9 modules). Content: Each module must contain engaging and informative content, with a minimum of 10 sentences. Module Length: Ensure that each module is between 10 to 12 sentences, providing comprehensive insights while remaining concise. Style: Use a professional teaching style that encourages learning and engagement. Language: All content must be in English. Engagement: Incorporate 1-2 relevant emojis in each module to enhance engagement. Formatting: Use '\n' for new lines in the JSON format. Content Approach: Start each module with a hook or key point. Focus on one core concept or skill per module. Use clear, simple language suitable for mobile reading. Include a brief actionable task or reflection question at the end of each module. Output Format: Provide the micro-course in JSON format as follows:{ "day1": { "module1": { "content": "Concise content for Day 1, Module 1..." }, "module2": { "content": "Concise content for Day 1, Module 2..." }, "module3": { "content": "Concise content for Day 1, Module 3..." } }, "day2": { "module1": { "content": "Concise content for Day 2, Module 1..." }, "module2": { "content": "Concise content for Day 2, Module 2..." }, "module3": { "content": "Concise content for Day 2, Module 3..." } }, "day3": { "module1": { "content": "Concise content for Day 3, Module 1..." }, "module2": { "content": "Concise content for Day 3, Module 2..." }, "module3": { "content": "Concise content for Day 3, Module 3..." } } } dont give any other words other than json
                 `
                 const headers = {
                     "Content-Type": "application/json",
@@ -148,7 +148,38 @@ const generateCourse = async () => {
     }
 }
 
+const solveUserQuery = async (prompt,waId) => {
+    try {
+        const headers = {
+            "Content-Type": "application/json",
+            "Authorization": process.env.AZURE_LLAMA_API_KEY,
+        };
 
-module.exports = { generateCourse };
+        const payload = {
+            messages: [
+                {
+                    role: "system",
+                    content: "Your a a doubt solver give short crisp and correct answer to this query : "+ prompt + " (If the query is not genuine or maliciaous then send that this query violates the Ekatra guidelines)",
+                }
+            ],
+            temperature: 0
+        };
+        const ENDPOINT = process.env.AZURE_LLAMA_ENDPOINT;
+        // Send request to OpenAI API
+        const response = await axios.post(ENDPOINT, payload, { headers: headers });
+        if (response.data.choices[0].message.content){
+            let st = response.data.choices[0].message.content;
+            st=st.replaceAll("```", ""); //Filter the response to exclude umcessary characters
+            sendText(st, waId);
+            
+        }
+
+    } catch (error) {
+        console.error("Failed to solve user query", error);
+        
+    }
+}
+
+module.exports = { generateCourse,solveUserQuery };
 
 
