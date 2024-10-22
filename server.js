@@ -318,8 +318,8 @@ webApp.post('/cop', async (req, res) => {
             const fetch = (await import('node-fetch')).default; // Dynamic import of node-fetch
             const { BlobServiceClient } = require('@azure/storage-blob'); // Import Azure Storage Blob SDK
         
-            const AZURE_STORAGE_CONNECTION_STRING = "DefaultEndpointsProtocol=https;AccountName=socratic;AccountKey=kTwJEkbncTnQCJh0Qy1CIZ9KbrvH3+umemBjWpg7Hglhzx7pPbaNPpskVkQ9717OhY6UeXcZmFlS+AStf+xLyA==;EndpointSuffix=core.windows.net"; // Replace with your Azure Storage connection string
-            const CONTAINER_NAME = "cop"; // Replace with your blob container name
+            const AZURE_STORAGE_CONNECTION_STRING = `DefaultEndpointsProtocol=https;AccountName=socratic;AccountKey=${process.env.AZURE_BLOB_CONNECTION_STRING_KEY}+xLyA==;EndpointSuffix=core.windows.net`; // Replace with your Azure Storage connection string
+            const CONTAINER_NAME = process.env.AZURE_BLOB_CONTAINER_NAME; 
         
             // Function to fetch image with auth headers
             const fetchImage = async (url, authHeaders) => {
@@ -376,7 +376,7 @@ webApp.post('/cop', async (req, res) => {
             // Function to call the vision model API
             const callVisionModel = async (imageUrl) => {
                 const apiEndpoint = "https://proxy.tune.app/chat/completions";
-                const apiKey = "sk-tune-hi7WyMPex4BRzPtORmFkNntFevZ7EPFDynk"; // Make sure to handle your API key securely
+                const apiKey = process.env.TUNE_STUDIO_API_KEY; 
         
                 try {
                     const response = await fetch(apiEndpoint, {
@@ -439,7 +439,7 @@ webApp.post('/cop', async (req, res) => {
             // Example usage
             const imageUrl = `${event.data}`;
             const authHeaders = {
-                "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlMDI3MWY4Ny1hNmM5LTRlNzgtYmZmMS1hMzc2YzE0NmJiMDYiLCJ1bmlxdWVfbmFtZSI6InRlY2hAZWthdHJhLm9uZSIsIm5hbWVpZCI6InRlY2hAZWthdHJhLm9uZSIsImVtYWlsIjoidGVjaEBla2F0cmEub25lIiwiYXV0aF90aW1lIjoiMDgvMDYvMjAyMiAwOToyMTowNCIsImRiX25hbWUiOiI4MDc2IiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjoiQURNSU5JU1RSQVRPUiIsImV4cCI6MjUzNDAyMzAwODAwLCJpc3MiOiJDbGFyZV9BSSIsImF1ZCI6IkNsYXJlX0FJIn0.aiCEBbYzs_GytyOJ3Xu4ySHcxOcndwr47TZ1uOy3LXM" // Replace with your auth token
+                "Authorization": `${process.env.WATI_API}`
             };
         
             const imageBuffer = await fetchImage(imageUrl, authHeaders);
