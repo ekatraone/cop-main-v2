@@ -1,10 +1,18 @@
-require('dotenv').config();
-const getStream = require('get-stream');
-const PDFDocument = require('pdfkit');
-const { PassThrough } = require('stream');
-const path = require('path');
+import dotenv from 'dotenv';
+dotenv.config(); // Load environment variables
 
-async function createCertificate(name, course_name) {
+import getStream from 'get-stream';
+import PDFDocument from 'pdfkit';
+import { PassThrough } from 'stream';
+import path from 'path';
+import { fileURLToPath } from 'url'; // Import for ES Module URL handling
+import { dirname } from 'path'; // Import for path operations
+
+// Derive __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+export async function createCertificate(name, course_name) {
     try {
         console.log("Creating certificate for ", name, course_name);
 
@@ -66,5 +74,3 @@ async function createCertificate(name, course_name) {
         throw error; // Rethrow the error to handle it in the calling code
     }
 }
-
-module.exports = { createCertificate };
