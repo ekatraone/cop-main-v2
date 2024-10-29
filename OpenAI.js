@@ -1,14 +1,15 @@
+import Airtable from 'airtable';
+import dotenv from 'dotenv';
+import { sendTemplateMessage, sendText } from './wati.js';
+import axios from 'axios';
 
-const Airtable = require('airtable');
-require('dotenv').config();
-const express = require('express');
-const { sendTemplateMessage,sendText } = require('./wati');
-const axios = require('axios');
+// Load environment variables
+dotenv.config();
 
 
 
 
-const getApprovedRecords = async () => {
+export const getApprovedRecords = async () => {
     const base = new Airtable({ apiKey: process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN }).base(process.env.AIRTABLE_STUDENT_BASE_ID);
     try {
         const records = await base('Student').select({
@@ -20,7 +21,7 @@ const getApprovedRecords = async () => {
     }
 };
 
-async function createTable(courseName, moduleNumber = 3) {
+export async function createTable(courseName, moduleNumber = 3) {
     const airtableFields = [
         { name: "Day", type: "number", options: { precision: 0 } },
         ...Array.from({ length: moduleNumber }, (_, i) => ({
@@ -57,7 +58,7 @@ async function createTable(courseName, moduleNumber = 3) {
     }
 }
 
-async function updateCourseRecords(tableId, courseData) {
+export async function updateCourseRecords(tableId, courseData) {
     const base = new Airtable({ apiKey: process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN }).base(process.env.AIRTABLE_COURSE_BASE_ID);
     let dayno = 1;
     for (const [day, modules] of Object.entries(courseData)) {
@@ -77,7 +78,7 @@ async function updateCourseRecords(tableId, courseData) {
     }
 }
 
-async function cleanUpStudentTable(phoneNumber, status = "Content Created") {
+export async function cleanUpStudentTable(phoneNumber, status = "Content Created") {
     const base = new Airtable({ apiKey: process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN }).base(process.env.AIRTABLE_STUDENT_BASE_ID);
     const records = await base('Student').select({
         filterByFormula: `AND({Phone} = ${phoneNumber},{Course Status}= "Approved")`
@@ -87,7 +88,7 @@ async function cleanUpStudentTable(phoneNumber, status = "Content Created") {
     }
 }
 
-const generateCourse = async () => {
+export async function generateCourse  (){
     const approvedRecords = await getApprovedRecords();
     console.log("Running AI Engine.....");
     if (approvedRecords.length > 0) {
@@ -148,7 +149,7 @@ const generateCourse = async () => {
     }
 }
 
-const solveUserQuery = async (prompt,waId) => {
+export const solveUserQuery = async (prompt,waId) => {
     try {
         const headers = {
             "Content-Type": "application/json",
@@ -180,6 +181,5 @@ const solveUserQuery = async (prompt,waId) => {
     }
 }
 
-module.exports = { generateCourse,solveUserQuery };
 
 
