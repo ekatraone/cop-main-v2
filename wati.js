@@ -1,56 +1,57 @@
-var request = require('request');
-require('dotenv').config("./env")
-const axios = require('axios');
-const FormData = require('form-data');
-const fs = require('fs');
+import request from 'request';
+import dotenv from 'dotenv';
+import axios from 'axios';
+import FormData from 'form-data';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Get current file's directory with ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 
-const getMessages = async (senderID, at) => {
+// Load environment variables
+dotenv.config();
+
+
+export const getMessages = async (senderID, at) => {
     return new Promise((resolve, reject) => {
-        var options = {
-            'method': 'GET',
-            'url': `https://${process.env.URL}/api/v1/getMessages/${senderID}`,
-            'headers': {
-                'Authorization': process.env.API
+        const options = {
+            method: 'GET',
+            url: `https://${process.env.URL}/api/v1/getMessages/${senderID}`,
+            headers: {
+                Authorization: process.env.API
             },
             formData: {
-                'pageSize': '10',
-                'pageNumber': '1'
+                pageSize: '10',
+                pageNumber: '1'
             }
         };
-        request(options, function (error, response) {
-            if (error) { console.log(error); }
-            else {
-                at = Number(at)
-                // console.log(typeof at)
+
+        request(options, (error, response) => {
+            if (error) {
+                console.log(error);
+                reject(error);
+            } else {
+                at = Number(at);
                 try {
-                    // console.log("response.body ", response)
-                    result = JSON.parse(response.body)
-                    // console.log("result 1 ", result.messages.items[at]?.text)
-
-                    // console.log("result", result.messages)
-                    if (result != undefined) {
-
-                        last_text = result.messages.items[at].text
-
+                    const result = JSON.parse(response.body);
+                    if (result && result.messages && result.messages.items[at]) {
                         resolve(result.messages.items[at]);
+                    } else {
+                        reject(new Error('Message not found'));
                     }
-                }
-                catch (error) {
+                } catch (error) {
                     console.log(error);
-                    //reject(e);
+                    reject(error);
                 }
             }
-
-
-
         });
-    })
-}
+    });
+};
 
-
-const sendMedia = async (buffer, filename, senderID, msg) => {
-    // Create a form-data object to handle the file upload
+export const sendMedia = async (buffer, filename, senderID, msg) => {
     const form = new FormData();
     form.append('file', buffer, {
         contentType: 'application/pdf',
@@ -58,192 +59,241 @@ const sendMedia = async (buffer, filename, senderID, msg) => {
     });
 
     try {
-        // Make the POST request to WATI API
         const response = await axios.post(
             `https://${process.env.WATI_URL_FOR_CERTIFICATE}/api/v1/sendSessionFile/${senderID}?caption=${msg}`,
             form,
             {
                 headers: {
-                    'Authorization': process.env.WAIT_API, 
+                    Authorization: process.env.WAIT_API,
                     ...form.getHeaders()
                 }
             }
         );
-
         console.log('File sent successfully');
     } catch (error) {
         console.error('Error sending file:', error);
     }
 };
 
+export const sendAudio = async (file, phone) => {
+    const filename =file+'.mp3';
+    try {
+        console.log("Sending audio to ", phone, "file name", filename);
+        
+        // Construct absolute file path
+        const filePath = path.join(__dirname, filename);
+        console.log("File path:", filePath);
+        
+        // Check if file exists
+        if (!fs.existsSync(filePath)) {
+            console.error('File not found at:', filePath);
+            throw new Error('Audio file not found');
+        }
 
+        const url = `https://${process.env.WATI_URL_FOR_CERTIFICATE}/api/v1/sendSessionFile/${phone}`;
+        
+        const form = new FormData();
+        
+        // Create read stream with absolute path
+        const fileStream = fs.createReadStream(filePath);
+        form.append('file', fileStream, {
+            filename: filename,
+            contentType: 'audio/mp3'
+        });
 
-const sendInteractiveButtonsMessage = async (hTxt, bTxt, btnTxt, senderID) => {
-    var options = {
-        'method': 'POST',
-        'url': 'https://' + process.env.URL + '/api/v1/sendInteractiveButtonsMessage?whatsappNumber=' + senderID,
-        'headers': {
-            'Authorization': process.env.API,
+        // Log form contents for debugging
+        console.log("Form contents:", form);
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `${process.env.WAIT_API}`,
+                ...form.getHeaders()
+            },
+            body: form
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('API error:', errorText);
+            throw new Error(`API error: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+        console.log('API Response:', data);
+        return data;
+
+    } catch (error) {
+        console.error('Error in sendAudio:', error);
+        throw error;
+    }
+};
+
+export const sendInteractiveButtonsMessage = async (hTxt, bTxt, btnTxt, senderID) => {
+    const options = {
+        method: 'POST',
+        url: `https://${process.env.URL}/api/v1/sendInteractiveButtonsMessage?whatsappNumber=${senderID}`,
+        headers: {
+            Authorization: process.env.API,
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            "header": {
-                "type": "Text",
-                "text": hTxt
+            header: {
+                type: 'Text',
+                text: hTxt
             },
-            "body": bTxt,
-            "buttons": [
+            body: bTxt,
+            buttons: [
                 {
-                    "text": btnTxt
+                    text: btnTxt
                 }
             ]
         })
-
     };
-    request(options, function (error, response) {
-        if (error) console.log(error);
-        console.log(response.body);
-    });
-}
 
-const sendInteractiveDualButtonsMessage = async (hTxt, bTxt, btnTxt1, btnTxt2, senderID) => {
-    var options = {
-        'method': 'POST',
-        'url': 'https://' + process.env.URL + '/api/v1/sendInteractiveButtonsMessage?whatsappNumber=' + senderID,
-        'headers': {
-            'Authorization': process.env.API,
+    request(options, (error, response) => {
+        if (error) {
+            console.log(error);
+        } else {
+            console.log(response.body);
+        }
+    });
+};
+
+export const sendInteractiveDualButtonsMessage = async (hTxt, bTxt, btnTxt1, btnTxt2, senderID) => {
+    const options = {
+        method: 'POST',
+        url: `https://${process.env.URL}/api/v1/sendInteractiveButtonsMessage?whatsappNumber=${senderID}`,
+        headers: {
+            Authorization: process.env.API,
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            "header": {
-                "type": "Text",
-                "text": hTxt
+            header: {
+                type: 'Text',
+                text: hTxt
             },
-            "body": bTxt,
-            "buttons": [
+            body: bTxt,
+            buttons: [
                 {
-                    "text": btnTxt1
+                    text: btnTxt1
                 },
                 {
-                    "text": btnTxt2
+                    text: btnTxt2
                 }
             ]
         })
-
     };
-    request(options, function (error, response) {
-        if (error) console.log(error);
-        console.log(response.body);
+
+    request(options, (error, response) => {
+        if (error) {
+            console.log(error);
+        } else {
+            console.log(response.body);
+        }
     });
-}
+};
 
-const sendText = async (msg, senderID) => {
+export const sendText = async (msg, senderID) => {
     console.log("Sending message to ", senderID);
-    var options = {
-        'method': 'POST',
-        'url': 'https://' + process.env.URL + '/api/v1/sendSessionMessage/' + senderID,
-        'headers': {
-            'Authorization': process.env.API,
-
+    const options = {
+        method: 'POST',
+        url: `https://${process.env.URL}/api/v1/sendSessionMessage/${senderID}`,
+        headers: {
+            Authorization: process.env.API,
         },
         formData: {
-            "messageText": msg,
+            messageText: msg,
         }
     };
-    request(options, function (error, response) {
-        body = JSON.parse(response.body)
-        result = body.result
-        //console.log(typeof result)
-        if (error) { console.log(error) }
+
+    request(options, (error, response) => {
+        if (error) {
+            console.log(error);
+        } else {
+            const body = JSON.parse(response.body);
+            const result = body.result;
+            console.log("Message sent:", result);
+        }
     });
-}
-const sendListInteractive = async (data, body, btnText, senderID) => {
-    var options = {
-        'method': 'POST',
-        'url': 'https://' + process.env.URL + '/api/v1/sendInteractiveListMessage?whatsappNumber=' + senderID,
-        'headers': {
-            'Authorization': process.env.API,
+};
+
+export const sendListInteractive = async (data, body, btnText, senderID) => {
+    const options = {
+        method: 'POST',
+        url: `https://${process.env.URL}/api/v1/sendInteractiveListMessage?whatsappNumber=${senderID}`,
+        headers: {
+            Authorization: process.env.API,
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            "header": "",
-            "body": body,
-            "footer": "",
-            "buttonText": btnText,
-            "sections": [
+            header: "",
+            body: body,
+            footer: "",
+            buttonText: btnText,
+            sections: [
                 {
-                    "title": "Options",
-                    "rows": data
+                    title: "Options",
+                    rows: data
                 }
             ]
         })
-
     };
-    request(options, function (error, response) {
-        if (error) throw new Error(error);
-        console.log("Result returned", response.body);
 
+    request(options, (error, response) => {
+        if (error) {
+            console.error(error);
+        } else {
+            console.log("Result returned", response.body);
+        }
     });
-}
+};
 
-
-const sendDynamicInteractiveMsg = async (data, body, senderID) => {
-
-    var options = {
-        'method': 'POST',
-        'url': 'https://' + process.env.URL + '/api/v1/sendInteractiveButtonsMessage?whatsappNumber=' + senderID,
-        'headers': {
-            'Authorization': process.env.API,
+export const sendDynamicInteractiveMsg = async (data, body, senderID) => {
+    const options = {
+        method: 'POST',
+        url: `https://${process.env.URL}/api/v1/sendInteractiveButtonsMessage?whatsappNumber=${senderID}`,
+        headers: {
+            Authorization: process.env.API,
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            "body": body,
-            "buttons": data
+            body: body,
+            buttons: data
         })
-
     };
-    request(options, function (error, response) {
-        if (error) throw new Error(error);
-        console.log(response.body);
+
+    request(options, (error, response) => {
+        if (error) {
+            console.error(error);
+        } else {
+            console.log(response.body);
+        }
     });
+};
 
-}
-
-async function sendTemplateMessage(day, course_name, template_name, senderID) {
-    params = [{ 'name': "day", "value": day }, { 'name': "course_name", "value": course_name }]
-    var options = {
-        'method': 'POST',
-        'url': 'https://' + process.env.URL + '/api/v1/sendTemplateMessage/' + senderID,
-        'headers': {
-            'Authorization': process.env.API,
+export async function sendTemplateMessage(day, course_name, template_name, senderID) {
+    const params = [{ name: "day", value: day }, { name: "course_name", value: course_name }];
+    const options = {
+        method: 'POST',
+        url: `https://${process.env.URL}/api/v1/sendTemplateMessage/${senderID}`,
+        headers: {
+            Authorization: process.env.API,
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            "template_name": template_name,
-            "broadcast_name": template_name,
-            "parameters": JSON.stringify(params)
+            template_name: template_name,
+            broadcast_name: template_name,
+            parameters: JSON.stringify(params)
         })
-
     };
-    request(options, function (error, response) {
-        body = JSON.parse(response.body)
-        result = body.result
-        //console.log(typeof result)
-        if (error || result == false)
-            console.log("WATI error " + response.body)
 
-        console.log("Res " + result);
+    request(options, (error, response) => {
+        if (error || JSON.parse(response.body).result === false) {
+            console.log("WATI error " + response.body);
+        } else {
+            console.log("Res " + JSON.parse(response.body).result);
+        }
     });
-}
-
-module.exports = {
-    sendText,
-    sendInteractiveButtonsMessage,
-    sendMedia,
-    sendListInteractive,
-    sendDynamicInteractiveMsg,
-    getMessages,
-    sendTemplateMessage,
-    sendInteractiveDualButtonsMessage
 }
 
