@@ -1,26 +1,17 @@
-// external packages
-const express = require('express');
-require('dotenv').config("./env");
-const test = require('./test.js');
-const cors = require('cors');
-const {createCertificate} = require('./certificate')
-const course_approval = require('./course_status');
-var Airtable = require('airtable');
-const WA = require('./wati');
-const airtable = require("./airtable_methods");
-const outro = require('./outroflow');
-// const cert = require('./certificate')
-const mongoose = require("mongoose");
-const mongodb = require('./mongodb');
-const cop = require('./index');
-const fs = require('fs');
-const request = require('request');
-const webApp = express();
-const { sendText, sendTemplateMessage ,sendMedia,sendInteractiveButtonsMessage , sendInteractiveDualButtonsMessage} = require('./wati');
-const{solveUserQuery} = require('./OpenAI.js');
-const { create } = require('domain');
-const { send } = require('process');
+import express from 'express';
 
+
+import cors from 'cors';
+import { createCertificate } from './certificate.js';
+import { course_approval } from './course_status.js';
+import Airtable from 'airtable';  // Airtable is commonly used with ES Modules as well
+import { sendAudio, sendText, sendTemplateMessage, sendMedia, sendInteractiveButtonsMessage, sendInteractiveDualButtonsMessage } from './wati.js';
+import azuretts from './textToSpeechAz.js';
+import { solveUserQuery } from './OpenAI.js';
+import { set } from 'mongoose';
+
+
+const webApp = express();
 webApp.use(express.json());
 webApp.use(cors());
 
@@ -151,29 +142,42 @@ const getCourseCreatedStudent_airtable = async (waId) => {
             const currentModule = courseData[0].fields[`Module ${NextModule} Text`];
             const initialText = `Hello ${Name},\n\nI hope you are doing well. Here is your course content for today.\n Module ${NextModule}\n\n`;
             await sendText(initialText, Phone);
-            setTimeout(() => { sendText(currentModule, Phone); }, 1000);
+            
+            console.log('Starting audio processing timeout...');
+            setTimeout(async () => {
+                try {
+                    await sendText(currentModule, Phone);
+                    console.log('Text sent, starting audio processing...');
+                    const filename = `${Phone}_${Topic}_${Date.now()}`;
+                    await azuretts(currentModule, Phone);
+                    
+                } catch (error) {
+                    console.error('Error in timeout callback:', error);
+                }
+            }, 1000);
+
 
             await updateStudentTableNextDayModule(Phone, NextDay, NextModule);
-            
+
             if (NextModule !== 3 || NextDay !== 3) {
                 if (NextModule === 3) NextDay++;
-                setTimeout(() => { 
-                    if(NextModule ===3){
+                setTimeout(() => {
+                    if (NextModule === 3) {
                         //Day over
                         // Now QNA time: user can ask for doubts.
-                        sendInteractiveDualButtonsMessage(`Hey👋 ${Name}`, "You have completed the day's module. Do you have any doubts?", "Yes", "No", Phone); 
-                    }else{
+                        sendInteractiveDualButtonsMessage(`Hey👋 ${Name}`, "You have completed the day's module. Do you have any doubts?", "Yes", "No", Phone);
+                    } else {
                         sendInteractiveButtonsMessage(`Hey👋 ${Name}`, "Don't let the learning stop!! Start next Module", "Next Module", Phone);
                     }
                 }, 10000);
 
             } else {
-                setTimeout(async() => {
+                setTimeout(async () => {
                     sendText("Congratulations🎉🎊! You have completed the course. We are preparing your certificate of completion", Phone);
                     const pdfbuffer = await createCertificate(Name, Topic);
                     setTimeout(() => {
-                        sendMedia(pdfbuffer,Name,Phone,"Hey👋, your course completion certificate is ready!! Don't forget to share your achievement.");
-                    },5000);
+                        sendMedia(pdfbuffer, Name, Phone, "Hey👋, your course completion certificate is ready!! Don't forget to share your achievement.");
+                    }, 5000);
                 })
             }
 
@@ -190,14 +194,14 @@ const get_student_table_send_remainder = async () => {
     const records = await base('Student').select({
         filterByFormula: `AND({Course Status} = 'Content Created', {Progress} = 'Pending')`,
     }).all();
-    for(let i=0;i<records.length;i++){
+    for (let i = 0; i < records.length; i++) {
         let { Phone, Topic, Name, Goal, Style, Language, "Next Day": NextDay, "Next Module": NextModule } = records[i].fields;
         sendTemplateMessage(NextDay, Topic, "generic_course_template", Phone); sendText("Press Start Day to get started with next Module", Phone);
 
     }
 }
 
-const setDountBit = async (waId, doubtBit,Title) => {
+const setDountBit = async (waId, doubtBit, Title) => {
     var base = new Airtable({ apiKey: process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN }).base(process.env.AIRTABLE_STUDENT_BASE_ID);
     try {
         console.log("Setting doubt bit....");
@@ -233,7 +237,7 @@ const setDountBit = async (waId, doubtBit,Title) => {
     }
 }
 
-const getDoubtBit = async (waId,Title) => {
+const getDoubtBit = async (waId, Title) => {
     var base = new Airtable({ apiKey: process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN }).base(process.env.AIRTABLE_STUDENT_BASE_ID);
     try {
         console.log("Getting doubt bit....");
@@ -248,7 +252,7 @@ const getDoubtBit = async (waId,Title) => {
             return; // Exit early if no records are found
         }
 
-        
+
         return record.fields.Doubt;
 
     } catch (error) {
@@ -280,47 +284,47 @@ webApp.post('/cop', async (req, res) => {
         // console.log(`Button Payload: ${buttonPayload}`);
 
 
-    }else if(event.type === 'interactive' &&  event.text === 'Next Module'){
+    } else if (event.type === 'interactive' && event.text === 'Next Module') {
         console.log("Button Clicked");
 
         getCourseCreatedStudent_airtable(event.waId);
 
-        
-    }else if(event.type === 'interactive' &&  event.text === 'Yes'){
+
+    } else if (event.type === 'interactive' && event.text === 'Yes') {
         console.log("Button Clicked Yes");
         try {
             const records = await getStudentData_Pending(event.waId);
             const record = records[0];
-            const { Phone, Topic, Name, Goal, Style, Language, "Next Day": NextDay, "Next Module": NextModule,"Doubt":Doubt } = record;
+            const { Phone, Topic, Name, Goal, Style, Language, "Next Day": NextDay, "Next Module": NextModule, "Doubt": Doubt } = record;
             //set doubt bit to true;
-            setDountBit(event.waId,1,Topic);
+            setDountBit(event.waId, 1, Topic);
         } catch (error) {
             console.error("Failed getting approved data", error);
         }
         sendText("Please type your query", event.waId);
-    }else if(event.type==='interactive' && event.text === 'No'){
+    } else if (event.type === 'interactive' && event.text === 'No') {
         //set doubt bit to false;
         try {
             const records = await getStudentData_Pending(event.waId);
             const record = records[0];
-            const { Phone, Topic, Name, Goal, Style, Language, "Next Day": NextDay, "Next Module": NextModule,"Doubt":Doubt } = record;
+            const { Phone, Topic, Name, Goal, Style, Language, "Next Day": NextDay, "Next Module": NextModule, "Doubt": Doubt } = record;
             //set doubt bit to true;
-            setDountBit(event.waId,0,Topic);
+            setDountBit(event.waId, 0, Topic);
         } catch (error) {
             console.error("Failed getting approved data", error);
         }
-        
+
         console.log("Button Clicked No");
         sendText("Great!! Keep learning and See you tomorrow!", event.waId);
-    }else if(event.type ==='image'){
+    } else if (event.type === 'image') {
         console.log("Image Received");
         (async () => {
             const fetch = (await import('node-fetch')).default; // Dynamic import of node-fetch
             const { BlobServiceClient } = require('@azure/storage-blob'); // Import Azure Storage Blob SDK
-        
-            const AZURE_STORAGE_CONNECTION_STRING = `DefaultEndpointsProtocol=https;AccountName=socratic;AccountKey=${process.env.AZURE_BLOB_CONNECTION_STRING_KEY}+xLyA==;EndpointSuffix=core.windows.net`; // Replace with your Azure Storage connection string
-            const CONTAINER_NAME = process.env.AZURE_BLOB_CONTAINER_NAME; 
-        
+
+            const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_BLOB_CONNECTION_STRING_key;
+            const CONTAINER_NAME = process.env.AZURE_BLOB_CONTAINER_NAME;
+
             // Function to fetch image with auth headers
             const fetchImage = async (url, authHeaders) => {
                 try {
@@ -328,21 +332,21 @@ webApp.post('/cop', async (req, res) => {
                         method: 'GET',
                         headers: authHeaders
                     });
-        
+
                     // Check if the response is ok and log headers for debugging
                     console.log(`Fetch Response Status: ${response.status}`);
                     console.log(`Fetch Response Headers:`, response.headers.raw());
-        
+
                     if (!response.ok) {
                         throw new Error(`Image not accessible: ${response.status}`);
                     }
-        
+
                     // Check if the response is of image type
                     const contentType = response.headers.get('content-type');
                     if (!contentType || !contentType.startsWith('image/')) {
                         throw new Error(`Expected an image but got: ${contentType}`);
                     }
-        
+
                     const buffer = await response.buffer(); // Await buffer creation
                     return buffer;
                 } catch (error) {
@@ -350,15 +354,15 @@ webApp.post('/cop', async (req, res) => {
                     return null; // Return null on error
                 }
             };
-        
+
             // Function to upload image to Azure Blob Storage
             const uploadImageToBlob = async (imageBuffer, blobName) => {
                 const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
                 const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
-                
+
                 // Create the container if it does not exist
                 await containerClient.createIfNotExists();
-                
+
                 // Upload the image
                 const blockBlobClient = containerClient.getBlockBlobClient(blobName);
                 await blockBlobClient.upload(imageBuffer, imageBuffer.length, {
@@ -367,17 +371,17 @@ webApp.post('/cop', async (req, res) => {
                         blobContentDisposition: 'inline' // Set to inline for viewing
                     }
                 });
-        
+
                 console.log(`Image uploaded to Azure Blob Storage: ${blobName}`);
                 console.log(`Public URL: ${blockBlobClient.url}`);
                 return blockBlobClient.url; // Return the public URL of the uploaded image
             };
-        
+
             // Function to call the vision model API
             const callVisionModel = async (imageUrl) => {
                 const apiEndpoint = "https://proxy.tune.app/chat/completions";
-                const apiKey = process.env.TUNE_STUDIO_API_KEY; 
-        
+                const apiKey = process.env.TUNE_STUDIO_API_KEY;
+
                 try {
                     const response = await fetch(apiEndpoint, {
                         method: "POST",
@@ -419,11 +423,11 @@ webApp.post('/cop', async (req, res) => {
                             max_tokens: 900
                         })
                     });
-        
+
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
-        
+
                     const data = await response.json();
                     console.log("Response Data:", data);
                     const message = data.choices[0].message;
@@ -435,13 +439,13 @@ webApp.post('/cop', async (req, res) => {
                     return null; // Return null or an appropriate value to indicate failure
                 }
             };
-        
+
             // Example usage
             const imageUrl = `${event.data}`;
             const authHeaders = {
                 "Authorization": `${process.env.WATI_API}`
             };
-        
+
             const imageBuffer = await fetchImage(imageUrl, authHeaders);
             if (imageBuffer) {
                 const blobName = "uploaded_image.jpg"; // Name for the uploaded image
@@ -449,34 +453,34 @@ webApp.post('/cop', async (req, res) => {
                 await callVisionModel(publicUrl);
             }
         })();
-        
+
     }
-    else if(event.eventType === 'message'){
-        let flag=false;
-        let doubt=0;
-        let name="User";
-        let Phone=event.waId;
+    else if (event.eventType === 'message') {
+        let flag = false;
+        let doubt = 0;
+        let name = "User";
+        let Phone = event.waId;
         try {
             const records = await getStudentData_Pending(event.waId);
             const record = records[0];
-            const {Name, "Doubt":Doubt } = record;
+            const { Name, "Doubt": Doubt } = record;
             flag = true;
             doubt = Doubt;
-            name=Name;
-            
+            name = Name;
+
         } catch (error) {
             console.error("Failed getting approved data", error);
         }
-        if(flag && doubt==1){
+        if (flag && doubt == 1) {
             //User query
             console.log("User Query", event.text);
             await solveUserQuery(event.text, event.waId);
             setTimeout(async () => {
                 await sendInteractiveDualButtonsMessage(
-                    `Hey👋 ${name}`, 
-                    "Any other doubts?", 
-                    "Yes", 
-                    "No", 
+                    `Hey👋 ${name}`,
+                    "Any other doubts?",
+                    "Yes",
+                    "No",
                     Phone
                 );
             }, 1000);  // 10 seconds delay
@@ -492,7 +496,7 @@ webApp.post('/cop', async (req, res) => {
 
 webApp.get("/ping", async (req, res) => {
     console.log("Pinging whatsapp server")
-    course_approval.course_approval()
+    course_approval()
     res.send("Booting Up AI Engine.........")
 })
 
