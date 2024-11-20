@@ -13,10 +13,43 @@ const openai = new OpenAIApi(configuration);
 async function ask(course_name, language) {
     console.log("1. Asking question ", course_name, language)
 
-    let question = `Write a 3-day lesson plan on the topic "${course_name}". Each day should be divided into 3 modules, each module should only have the content. 
+    let question = `Create a personalized 3-day micro-course on ${Topic} in ${Language}, using the teaching style of ${Style}, designed to be delivered via WhatsApp. The course should help the learner achieve their goal: ${Goal}.
+ 
+Guidelines:
 
-Strictly follow and create a valid JSON structure as given below:
+1. Structure:
+- Duration: 3 days.
+- ⁠Modules per Day: 3 modules (total of 9 modules).
+- ⁠Daily Module Breakdown:
+		- Modules 1 and 2:
+		 	Focus on teaching key concepts and skills related to ${Topic}.
+			Content should align with the learner's goal (${Goal}
+		- Module 3 Should include:
+			Reflection: Encourage the learner to reflect on the previous modules and how it applies to the goal.
+			Actionable Task: Provide a practical exercise or task that allows the learner to apply the day's learning.
 
+- Content Requirements:
+	- Length: Each module must be 10 to 12 sentences.
+	- Opening: Start with a compelling hook or key point to engage the learner.
+	- Focus: Concentrate on one core concept or skill per module.
+	- Language: Use clear, simple language suitable for mobile reading formatted for WhatsApp
+
+- Engagement:
+	- Incorporate 1-2 relevant emojis to enhance engagement.
+	- Maintain an encouraging tone that fosters learning.
+	
+- Style Guidelines:
+	- Format content for easy reading on WhatsApp.
+	- Break text into short paragraphs for readability.
+	- Utilize bullet points or numbered lists where appropriate.
+	- Use line breaks to enhance readability.
+
+- Content Flow:
+	- Ensure modules progress logically, building upon previous content.
+	- Align all content with the unique learner's overall goal (${Goal}).
+ 
+- Output Format: 
+	- Provide the micro-course in JSON format as follows:
 {
   "Day 1": {
     "Day 1 - Module 1": {
@@ -51,7 +84,8 @@ Strictly follow and create a valid JSON structure as given below:
       "[module-content]"
     }
   }
-}`;
+}
+dont give any other words other than json`;
     try {
         const completion = await openai.createChatCompletion({
             model: "gpt-4o",
