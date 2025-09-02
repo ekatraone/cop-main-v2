@@ -76,6 +76,10 @@ The server listens for webhooks and sends learning modules to learners via Whats
 | `certificate.js` | PDF certificate generator |
 | `airtable_methods.js`, `test.js`, etc. | Legacy or experimental utilities |
 
+## Intern Task
+
+Guidelines for running the project without Airtable or Wati are available in the [Intern Task document](intern_task.md).
+
 ## Testing
 
 No automated test suite is provided. Running `npm test` will report the missing script.
